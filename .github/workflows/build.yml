@@ -7,9 +7,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 25 }
-      - uses: gradle/actions/setup-gradle@v4
-        with: { gradle-version: current }
-      - run: gradle build --no-daemon
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.12
+      - name: Build Mod
+        run: gradle build --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: donut-smp-live-visual-auction
