@@ -22,6 +22,7 @@ public class AuctionMenuScreen extends Screen {
 
     private final List<ItemStack> filtered = new ArrayList<>();
     private EditBox search;
+    private EditBox seconds;
     private int scrollRows = 0;
 
     public AuctionMenuScreen() {
@@ -38,12 +39,27 @@ public class AuctionMenuScreen extends Screen {
 
     @Override
     protected void init() {
-        search = new EditBox(this.font, this.width / 2 - 100, 10, 200, 18, Component.literal("Search"));
+        search = new EditBox(this.font, this.width / 2 - 120, 10, 160, 18, Component.literal("Search"));
         search.setHint(Component.literal("Search items..."));
         search.setResponder(s -> refilter());
         addRenderableWidget(search);
+
+        seconds = new EditBox(this.font, this.width / 2 + 50, 10, 50, 18, Component.literal("Seconds"));
+        seconds.setValue(Integer.toString(AuctionState.lastSeconds));
+        addRenderableWidget(seconds);
+
         setInitialFocus(search);
         refilter();
+    }
+
+    private int chosenSeconds() {
+        String digits = seconds == null ? "" : seconds.getValue().replaceAll("[^0-9]", "");
+        if (digits.isEmpty() || digits.length() > 6) return AuctionState.lastSeconds;
+        try {
+            return AuctionState.clampSeconds(Integer.parseInt(digits));
+        } catch (NumberFormatException e) {
+            return AuctionState.lastSeconds;
+        }
     }
 
     private void refilter() {
@@ -76,6 +92,8 @@ public class AuctionMenuScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partial) {
         super.extractRenderState(g, mouseX, mouseY, partial);
 
+        g.text(this.font, "seconds", this.width / 2 + 104, 15, 0xFFAAAAAA);
+
         int cols = cols(), left = gridLeft();
         int hovered = indexAt(mouseX, mouseY);
 
@@ -103,7 +121,7 @@ public class AuctionMenuScreen extends Screen {
         if (event.button() == 0) {
             int idx = indexAt(event.x(), event.y());
             if (idx >= 0) {
-                AuctionState.start(filtered.get(idx));
+                AuctionState.start(filtered.get(idx), chosenSeconds());
                 Minecraft.getInstance().setScreen(null);
                 return true;
             }
