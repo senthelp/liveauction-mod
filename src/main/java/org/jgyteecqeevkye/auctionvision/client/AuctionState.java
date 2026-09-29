@@ -15,7 +15,10 @@ public final class AuctionState {
     public static final int MIN_SECONDS = 5;
     public static final int MAX_SECONDS = 600;
 
+    /** true while the bidding window is open (timer running). */
     public static volatile boolean active = false;
+    /** true while the card is shown; stays true after time runs out until the X is clicked. */
+    public static volatile boolean visible = false;
     public static ItemStack stack = ItemStack.EMPTY;
     public static volatile long bid = 0L;
     public static volatile String bidder = "No bids yet";
@@ -42,6 +45,13 @@ public final class AuctionState {
         bidder = "No bids yet";
         timerEnd = System.nanoTime() + durationNs; // the ONLY write to timerEnd
         active = true;
+        visible = true;
+    }
+
+    /** Called by the X button: hides the card (and ends the auction if still running). */
+    public static synchronized void dismiss() {
+        active = false;
+        visible = false;
     }
 
     public static synchronized boolean isExpired() {

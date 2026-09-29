@@ -5,6 +5,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /** Draws the card. Read-only with respect to the timer: it never modifies timing state. */
 public final class AuctionHudRenderer {
+    private static boolean wasDown = false;
+
     private AuctionHudRenderer() {}
 
     /** Hue 0..1 -> opaque ARGB (full saturation, full brightness). */
@@ -31,24 +33,48 @@ public final class AuctionHudRenderer {
     }
 
     public static void render(GuiGraphicsExtractor g) {
-        // Closes the card at the exact moment the original window reaches zero.
-        if (!AuctionState.tickAlive()) return;
+        if (!AuctionState.visible) return;
+
+        // Timer check: closes the BIDDING window at the exact moment the original time hits zero.
+        // The card itself stays visible (showing the result) until the X is clicked.
+        boolean live = AuctionState.tickAlive();
 
         Minecraft mc = Minecraft.getInstance();
-        long remainingMs = AuctionState.remainingMs();
-        double fraction = AuctionState.fraction();
+        long remainingMs = live ? AuctionState.remainingMs() : 0L;
+        double fraction = live ? AuctionState.fraction() : 0.0;
 
         int cardW = 150, cardH = 56;
         int x = (g.guiWidth() - cardW) / 2, y = 4;
 
         g.fill(x, y, x + cardW, y + cardH, 0xC0263238);
 
-        // color-cycling 1px border: each side is offset in hue, whole thing rotates over 3s
-        float t = (System.currentTimeMillis() % 3000L) / 3000f;
-        g.fill(x, y, x + cardW, y + 1, rainbow(t));                       // top
-        g.fill(x + cardW - 1, y, x + cardW, y + cardH, rainbow(t + 0.25f)); // right
-        g.fill(x, y + cardH - 1, x + cardW, y + cardH, rainbow(t + 0.5f));  // bottom
-        g.fill(x, y, x + 1, y + cardH, rainbow(t + 0.75f));                 // left
+        // one color-cycling border, all four sides in sync (3s per full cycle)
+        int border = rainbow((System.currentTimeMillis() % 3000L) / 3000f);
+        g.fill(x, y, x + cardW, y + 1, border);
+        g.fill(x, y + cardH - 1, x + cardW, y + cardH, border);
+        g.fill(x, y, x + 1, y + cardH, border);
+        g.fill(x + cardW - 1, y, x + cardW, y + cardH, border);
+
+        // X button (top-right). Clickable while a screen is open (e.g. press T for chat).
+        int bx = x + cardW - 12, by = y + 3, bs = 9;
+        boolean hover = false;
+        if (mc.screen != null && mc.getWindow().getScreenWidth() > 0) {
+            double scale = (double) g.guiWidth() / mc.getWindow().getScreenWidth();
+            double mx = mc.mouseHandler.xpos() * scale;
+            double my = mc.mouseHandler.ypos() * scale;
+            hover = mx >= bx && mx < bx + bs && my >= by && my < by + bs;
+            boolean down = mc.mouseHandler.isLeftPressed();
+            if (down && !wasDown && hover) {
+                AuctionState.dismiss();
+                wasDown = down;
+                return;
+            }
+            wasDown = down;
+        } else {
+            wasDown = mc.mouseHandler.isLeftPressed();
+        }
+        if (hover) g.fill(bx, by, bx + bs, by + bs, 0x80E53935);
+        g.text(mc.font, "x", bx + 2, by + 1, hover ? 0xFFFFFFFF : 0xFFCCCCCC);
 
         // floating item (2x), sine-wave bob
         float bob = (float) (Math.sin(System.currentTimeMillis() / 350.0) * 2.0);
@@ -59,10 +85,16 @@ public final class AuctionHudRenderer {
         g.pose().popMatrix();
 
         int tx = x + 46;
-        g.text(mc.font, cap(AuctionState.stack.getHoverName().getString(), 16), tx, y + 5, 0xFFFFFFFF);
+        g.text(mc.font, cap(AuctionState.stack.getHoverName().getString(), 12), tx, y + 5, 0xFFFFFFFF);
         g.text(mc.font, "Bid: $" + AuctionState.abbreviate(AuctionState.bid), tx, y + 16, 0xFFFFD700);
-        g.text(mc.font, "By: " + cap(AuctionState.bidder, 12), tx, y + 27, 0xFFCCCCCC);
-        g.text(mc.font, String.format("%.1fs", remainingMs / 1000.0), tx, y + 38, 0xFFAAAAAA);
+        boolean hasBid = AuctionState.bid > 0;
+        String who = live ? "By: " : (hasBid ? "Won: " : "By: ");
+        g.text(mc.font, who + cap(AuctionState.bidder, 11), tx, y + 27, 0xFFCCCCCC);
+        if (live) {
+            g.text(mc.font, String.format("%.1fs", remainingMs / 1000.0), tx, y + 38, 0xFFAAAAAA);
+        } else {
+            g.text(mc.font, "ENDED", tx, y + 38, 0xFFE53935);
+        }
 
         // shrinking countdown bar, red under 7s
         int barX = x + 4, barY = y + cardH - 7, barMax = cardW - 8;
