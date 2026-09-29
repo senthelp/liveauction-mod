@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "auctionvision",
+  "version": "${version}",
+  "name": "Donut SMP Live Visual Auction",
+  "description": "Client-side visual auction HUD for Donut SMP.",
+  "authors": ["jgyteecqeevkye"],
+  "environment": "client",
+  "entrypoints": {
+    "client": ["org.jgyteecqeevkye.auctionvision.client.AuctionVisionClient"]
+  },
+  "mixins": ["auctionvision.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.18.0",
+    "minecraft": ">=1.0.0",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
