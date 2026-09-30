@@ -1,7 +1,9 @@
 package com.pathetictry.auctionvision.client;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.network.chat.Component;
 
 /** Draws the card. Read-only with respect to the timer: it never modifies timing state. */
 public final class AuctionHudRenderer {
@@ -38,6 +40,16 @@ public final class AuctionHudRenderer {
         boolean live = AuctionState.tickAlive();
 
         Minecraft mc = Minecraft.getInstance();
+
+        // one-time winner message in chat when the auction ends by itself
+        if (!live && AuctionState.consumeEnd()) {
+            String item = AuctionState.stack.getHoverName().getString();
+            String msg = AuctionState.bid > 0
+                ? "[Auction] Sold " + item + " to " + AuctionState.bidder + " for $" + AuctionState.abbreviate(AuctionState.bid)
+                : "[Auction] " + item + " ended with no bids.";
+            mc.gui.getChat().addMessage(Component.literal(msg).withStyle(ChatFormatting.GOLD));
+        }
+
         long remainingMs = live ? AuctionState.remainingMs() : 0L;
         double fraction = live ? AuctionState.fraction() : 0.0;
 

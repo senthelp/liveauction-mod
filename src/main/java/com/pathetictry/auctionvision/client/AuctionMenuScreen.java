@@ -16,13 +16,15 @@ import net.minecraft.world.item.ItemStack;
 
 public class AuctionMenuScreen extends Screen {
     private static final int CELL = 20;
-    private static final int TOP = 40;
+    private static final int TOP = 54;
 
     private static List<ItemStack> ALL;
 
     private final List<ItemStack> filtered = new ArrayList<>();
     private EditBox search;
     private EditBox seconds;
+    private EditBox minBox;
+    private EditBox maxBox;
     private int scrollRows = 0;
 
     public AuctionMenuScreen() {
@@ -39,14 +41,23 @@ public class AuctionMenuScreen extends Screen {
 
     @Override
     protected void init() {
-        search = new EditBox(this.font, this.width / 2 - 120, 10, 160, 18, Component.literal("Search"));
+        search = new EditBox(this.font, this.width / 2 - 100, 6, 200, 18, Component.literal("Search"));
         search.setHint(Component.literal("Search items..."));
         search.setResponder(s -> refilter());
         addRenderableWidget(search);
 
-        seconds = new EditBox(this.font, this.width / 2 + 50, 10, 50, 18, Component.literal("Seconds"));
+        int sx = this.width / 2 - 140;
+        seconds = new EditBox(this.font, sx + 42, 28, 40, 18, Component.literal("Seconds"));
         seconds.setValue(Integer.toString(AuctionState.lastSeconds));
         addRenderableWidget(seconds);
+
+        minBox = new EditBox(this.font, sx + 122, 28, 56, 18, Component.literal("Min bid"));
+        minBox.setHint(Component.literal("none"));
+        addRenderableWidget(minBox);
+
+        maxBox = new EditBox(this.font, sx + 216, 28, 56, 18, Component.literal("Max bid"));
+        maxBox.setHint(Component.literal("none"));
+        addRenderableWidget(maxBox);
 
         setInitialFocus(search);
         refilter();
@@ -59,6 +70,26 @@ public class AuctionMenuScreen extends Screen {
             return AuctionState.clampSeconds(Integer.parseInt(digits));
         } catch (NumberFormatException e) {
             return AuctionState.lastSeconds;
+        }
+    }
+
+    /** Parses "150k", "2.5m", "1,000", "" -> number (0 if empty/invalid). */
+    private static long parseAmount(EditBox box) {
+        if (box == null) return 0L;
+        String t = box.getValue().toLowerCase(Locale.ROOT).replace(",", "").replace("$", "").trim();
+        if (t.isEmpty()) return 0L;
+        long mult = 1L;
+        char last = t.charAt(t.length() - 1);
+        if (last == 'k') mult = 1_000L;
+        else if (last == 'm') mult = 1_000_000L;
+        else if (last == 'b') mult = 1_000_000_000L;
+        if (mult != 1L) t = t.substring(0, t.length() - 1);
+        try {
+            double v = Double.parseDouble(t);
+            if (v < 0 || Double.isNaN(v) || Double.isInfinite(v)) return 0L;
+            return (long) (v * mult);
+        } catch (NumberFormatException e) {
+            return 0L;
         }
     }
 
@@ -92,7 +123,10 @@ public class AuctionMenuScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partial) {
         super.extractRenderState(g, mouseX, mouseY, partial);
 
-        g.text(this.font, "seconds", this.width / 2 + 104, 15, 0xFFAAAAAA);
+        int sx = this.width / 2 - 140;
+        g.text(this.font, "Time(s)", sx, 33, 0xFFAAAAAA);
+        g.text(this.font, "Min $", sx + 90, 33, 0xFFAAAAAA);
+        g.text(this.font, "Max $", sx + 184, 33, 0xFFAAAAAA);
 
         int cols = cols(), left = gridLeft();
         int hovered = indexAt(mouseX, mouseY);
@@ -121,7 +155,7 @@ public class AuctionMenuScreen extends Screen {
         if (event.button() == 0) {
             int idx = indexAt(event.x(), event.y());
             if (idx >= 0) {
-                AuctionState.start(filtered.get(idx), chosenSeconds());
+                AuctionState.start(filtered.get(idx), chosenSeconds(), parseAmount(minBox), parseAmount(maxBox));
                 Minecraft.getInstance().setScreen(null);
                 return true;
             }

@@ -9,26 +9,31 @@ import net.minecraft.world.item.ItemStack;
  *  - offer() may change bid/bidder only. It never extends or resets timerEnd.
  *  - The clock is System.nanoTime() (monotonic).
  *  - A bid arriving at or after timerEnd is rejected and the auction is closed.
+ * Min/max: bids below minBid are ignored. A bid >= maxBid (buy-now) wins and ends the auction at once.
  */
 public final class AuctionState {
     public static final int DEFAULT_SECONDS = 30;
     public static final int MIN_SECONDS = 5;
     public static final int MAX_SECONDS = 600;
 
-    /** true while the bidding window is open (timer running). */
+    /** true while the bidding window is open. */
     public static volatile boolean active = false;
-    /** true while the card is shown; stays true after time runs out until the X is clicked. */
+    /** true while the card is shown; stays true after the auction ends until /cancel. */
     public static volatile boolean visible = false;
     public static ItemStack stack = ItemStack.EMPTY;
     public static volatile long bid = 0L;
     public static volatile String bidder = "No bids yet";
 
-    /** Remembered between auctions so the box in the menu keeps your last value. */
+    /** 0 = no limit. */
+    public static volatile long minBid = 0L;
+    public static volatile long maxBid = 0L;
+
     public static int lastSeconds = DEFAULT_SECONDS;
 
     private static long durationNs = DEFAULT_SECONDS * 1_000_000_000L;
     /** Absolute nanoTime deadline. Only start() assigns it. */
     private static long timerEnd = 0L;
+    private static boolean announced = true;
 
     private AuctionState() {}
 
@@ -36,29 +41,43 @@ public final class AuctionState {
         return Math.max(MIN_SECONDS, Math.min(MAX_SECONDS, s));
     }
 
-    public static synchronized void start(ItemStack item, int seconds) {
+    public static synchronized void start(ItemStack item, int seconds, long min, long max) {
         int s = clampSeconds(seconds);
         lastSeconds = s;
         durationNs = s * 1_000_000_000L;
         stack = item.copy();
         bid = 0L;
         bidder = "No bids yet";
+        minBid = Math.max(0L, min);
+        maxBid = Math.max(0L, max);
+        if (maxBid > 0 && maxBid < minBid) maxBid = minBid;
         timerEnd = System.nanoTime() + durationNs; // the ONLY write to timerEnd
+        announced = false;
         active = true;
         visible = true;
     }
 
-    /** Called by the X button: hides the card (and ends the auction if still running). */
+    /** /cancel: hides the card, ends the auction if running, and suppresses the winner message. */
     public static synchronized void dismiss() {
         active = false;
         visible = false;
+        announced = true;
+    }
+
+    /** True exactly once after an auction ends on its own (time out or buy-now). */
+    public static synchronized boolean consumeEnd() {
+        if (visible && !active && !announced) {
+            announced = true;
+            return true;
+        }
+        return false;
     }
 
     public static synchronized boolean isExpired() {
         return System.nanoTime() - timerEnd >= 0L;
     }
 
-    /** Closes the card if the window has elapsed. Returns true if the auction is still live. */
+    /** Closes the bidding window if time is up. Returns true if the auction is still live. */
     public static synchronized boolean tickAlive() {
         if (!active) return false;
         if (isExpired()) { active = false; return false; }
@@ -71,15 +90,16 @@ public final class AuctionState {
 
     public static long remainingMs() { return remainingNanos() / 1_000_000L; }
 
-    /** 1.0 -> 0.0 across the chosen window. */
     public static synchronized double fraction() { return remainingNanos() / (double) durationNs; }
 
-    /** Updates bid + bidder instantly if strictly higher and the window is open. Never touches timerEnd. */
+    /** Updates bid + bidder if allowed. Never touches timerEnd. */
     public static synchronized boolean offer(String sender, long amount) {
         if (!tickAlive()) return false;
+        if (minBid > 0 && amount < minBid) return false; // below minimum
         if (amount <= bid) return false;
         bid = amount;
         bidder = sender;
+        if (maxBid > 0 && amount >= maxBid) active = false; // buy-now reached: sold
         return true;
     }
 
