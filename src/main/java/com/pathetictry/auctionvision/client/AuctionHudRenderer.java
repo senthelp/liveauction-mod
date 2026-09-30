@@ -47,7 +47,7 @@ public final class AuctionHudRenderer {
             String msg = AuctionState.bid > 0
                 ? "[Auction] Sold " + item + " to " + AuctionState.bidder + " for $" + AuctionState.abbreviate(AuctionState.bid)
                 : "[Auction] " + item + " ended with no bids.";
-            mc.gui.getChat().addMessage(Component.literal(msg).withStyle(ChatFormatting.GOLD), null, null);
+            mc.gui.getChat().addClientSystemMessage(Component.literal(msg).withStyle(ChatFormatting.GOLD));
         }
 
         long remainingMs = live ? AuctionState.remainingMs() : 0L;
