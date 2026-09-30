@@ -11,12 +11,18 @@ public class AuctionVisionClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // Client command: handled locally, never sent to the server.
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) ->
+        // Client commands: handled locally, never sent to the server.
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) -> {
             dispatcher.register(ClientCommands.literal("auction").executes(ctx -> {
                 pendingOpen = true; // open next tick so the closing chat screen can't override it
                 return 1;
-            })));
+            }));
+            // /cancel closes the card (and ends the auction if it is still running)
+            dispatcher.register(ClientCommands.literal("cancel").executes(ctx -> {
+                AuctionState.dismiss();
+                return 1;
+            }));
+        });
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             if (pendingOpen) {
