@@ -1,4 +1,4 @@
-package org.jgyteecqeevkye.auctionvision.client;
+package com.pathetictry.auctionvision.client;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
