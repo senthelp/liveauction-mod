@@ -5,8 +5,9 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /** Draws the card. Read-only with respect to the timer: it never modifies timing state. */
 public final class AuctionHudRenderer {
-    /** Overall card scale (1.5x). */
-    private static final float S = 1.5f;
+    /** Overall card scale. */
+    private static final float S = 1.2f;
+    private static final String ENDED_TEXT = "ENDED (/cancel)";
 
     private AuctionHudRenderer() {}
 
@@ -29,10 +30,6 @@ public final class AuctionHudRenderer {
         return 0xFF000000 | ((int) (r * 255) << 16) | ((int) (g * 255) << 8) | (int) (b * 255);
     }
 
-    private static String cap(String s, int max) {
-        return s.length() <= max ? s : s.substring(0, max - 1) + "…";
-    }
-
     public static void render(GuiGraphicsExtractor g) {
         if (!AuctionState.visible) return;
 
@@ -44,7 +41,20 @@ public final class AuctionHudRenderer {
         long remainingMs = live ? AuctionState.remainingMs() : 0L;
         double fraction = live ? AuctionState.fraction() : 0.0;
 
-        int cardW = 150, cardH = 56; // local size; drawn at S x on screen (225 x 84)
+        // text lines (full names, never shortened)
+        String name = AuctionState.stack.getHoverName().getString();
+        String bidLine = "Bid: $" + AuctionState.abbreviate(AuctionState.bid);
+        String who = (!live && AuctionState.bid > 0) ? "Won: " : "By: ";
+        String byLine = who + AuctionState.bidder;
+        String timeLine = live ? String.format("%.1fs", remainingMs / 1000.0) : ENDED_TEXT;
+
+        // card width = widest line (ended text always counted so the card doesn't jump at the end)
+        int textW = Math.max(Math.max(mc.font.width(name), mc.font.width(bidLine)),
+                             Math.max(mc.font.width(byLine), mc.font.width(ENDED_TEXT)));
+        int tx = 44;
+        int cardW = Math.max(110, tx + textW + 8);
+        int cardH = 54;
+
         float screenX = (g.guiWidth() - cardW * S) / 2f;
 
         g.pose().pushMatrix();
@@ -63,25 +73,18 @@ public final class AuctionHudRenderer {
         // floating item (2x local), sine-wave bob
         float bob = (float) (Math.sin(System.currentTimeMillis() / 350.0) * 2.0);
         g.pose().pushMatrix();
-        g.pose().translate(8f, 8f + bob);
+        g.pose().translate(7f, 7f + bob);
         g.pose().scale(2.0f, 2.0f);
         g.item(AuctionState.stack, 0, 0);
         g.pose().popMatrix();
 
-        int tx = 46;
-        g.text(mc.font, cap(AuctionState.stack.getHoverName().getString(), 16), tx, 5, 0xFFFFFFFF);
-        g.text(mc.font, "Bid: $" + AuctionState.abbreviate(AuctionState.bid), tx, 16, 0xFFFFD700);
-        boolean hasBid = AuctionState.bid > 0;
-        String who = live ? "By: " : (hasBid ? "Won: " : "By: ");
-        g.text(mc.font, who + cap(AuctionState.bidder, 12), tx, 27, 0xFFCCCCCC);
-        if (live) {
-            g.text(mc.font, String.format("%.1fs", remainingMs / 1000.0), tx, 38, 0xFFAAAAAA);
-        } else {
-            g.text(mc.font, "ENDED  (/cancel to close)", tx, 38, 0xFFE53935);
-        }
+        g.text(mc.font, name, tx, 5, 0xFFFFFFFF);
+        g.text(mc.font, bidLine, tx, 16, 0xFFFFD700);
+        g.text(mc.font, byLine, tx, 27, 0xFFCCCCCC);
+        g.text(mc.font, timeLine, tx, 38, live ? 0xFFAAAAAA : 0xFFE53935);
 
         // shrinking countdown bar, red under 7s
-        int barX = 4, barY = cardH - 7, barMax = cardW - 8;
+        int barX = 4, barY = cardH - 6, barMax = cardW - 8;
         int barW = (int) (barMax * fraction);
         int color = remainingMs < 7_000L ? 0xFFE53935 : 0xFF43A047;
         g.fill(barX, barY, barX + barMax, barY + 3, 0x80000000);
