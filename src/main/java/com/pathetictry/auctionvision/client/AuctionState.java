@@ -21,6 +21,8 @@ public final class AuctionState {
     /** true while the card is shown; stays true after the auction ends until /cancel. */
     public static volatile boolean visible = false;
     public static ItemStack stack = ItemStack.EMPTY;
+    /** How many of the item are being sold (shown as "3x"). */
+    public static volatile int quantity = 1;
     public static volatile long bid = 0L;
     public static volatile String bidder = "No bids yet";
 
@@ -29,6 +31,10 @@ public final class AuctionState {
     public static volatile long maxBid = 0L;
 
     public static int lastSeconds = DEFAULT_SECONDS;
+
+    /** For card effects only: when the last accepted bid arrived and by how much it rose. */
+    public static volatile long lastBidMs = 0L;
+    public static volatile long lastDelta = 0L;
 
     private static long durationNs = DEFAULT_SECONDS * 1_000_000_000L;
     /** Absolute nanoTime deadline. Only start() assigns it. */
@@ -41,7 +47,12 @@ public final class AuctionState {
         return Math.max(MIN_SECONDS, Math.min(MAX_SECONDS, s));
     }
 
-    public static synchronized void start(ItemStack item, int seconds, long min, long max) {
+    public static int clampQty(int q) {
+        return Math.max(1, Math.min(9999, q));
+    }
+
+    public static synchronized void start(ItemStack item, int seconds, long min, long max, int qty) {
+        quantity = clampQty(qty);
         int s = clampSeconds(seconds);
         lastSeconds = s;
         durationNs = s * 1_000_000_000L;
@@ -52,6 +63,8 @@ public final class AuctionState {
         maxBid = Math.max(0L, max);
         if (maxBid > 0 && maxBid < minBid) maxBid = minBid;
         timerEnd = System.nanoTime() + durationNs; // the ONLY write to timerEnd
+        lastBidMs = 0L;
+        lastDelta = 0L;
         announced = false;
         active = true;
         visible = true;
@@ -97,8 +110,11 @@ public final class AuctionState {
         if (!tickAlive()) return false;
         if (minBid > 0 && amount < minBid) return false; // below minimum
         if (amount <= bid) return false;
+        long prev = bid;
         bid = amount;
         bidder = sender;
+        lastDelta = prev > 0 ? amount - prev : amount;
+        lastBidMs = System.currentTimeMillis();
         if (maxBid > 0 && amount >= maxBid) active = false; // buy-now reached: sold
         return true;
     }
