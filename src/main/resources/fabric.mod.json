@@ -1,15 +1,19 @@
 {
   "schemaVersion": 1,
-  "id": "dragonskull",
+  "id": "auctionvision",
   "version": "${version}",
-  "name": "Dragon Skull (client-side look)",
-  "description": "Client-side cosmetic: shows Wither Skeleton Skulls as Dragon Heads on YOUR screen only. Other players do not see it. Made by PatheticTry.",
+  "name": "Donut SMP Live Visual Auction",
+  "description": "Client-side visual auction HUD for Donut SMP.",
   "authors": ["PatheticTry"],
   "environment": "client",
-  "mixins": ["dragonskull.mixins.json"],
+  "entrypoints": {
+    "client": ["com.pathetictry.auctionvision.client.AuctionVisionClient"]
+  },
+  "mixins": ["auctionvision.mixins.json"],
   "depends": {
     "fabricloader": ">=0.18.0",
     "minecraft": ">=1.0.0",
-    "java": ">=25"
+    "java": ">=25",
+    "fabric-api": "*"
   }
 }

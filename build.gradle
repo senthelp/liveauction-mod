@@ -4,8 +4,8 @@ plugins {
 }
 
 version = project.mod_version
-group = 'com.pathetictry.dragonskull'
-base { archivesName = 'dragon-skull' }
+group = 'com.pathetictry.auctionvision'
+base { archivesName = 'donut-smp-live-visual-auction' }
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
