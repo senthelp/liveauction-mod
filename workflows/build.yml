@@ -16,5 +16,5 @@ jobs:
         run: gradle build --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: donut-smp-live-visual-auction
+          name: dragon-skull
           path: build/libs/*.jar

@@ -1,0 +1,8 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.pathetictry.dragonskull.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": ["AbstractSkullBlockMixin", "ItemStackMixin"],
+  "injectors": { "defaultRequire": 1 }
+}
